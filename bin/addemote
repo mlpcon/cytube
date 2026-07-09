@@ -1,0 +1,62 @@
+#!/bin/bash
+# Usage: addemote "emote_name" "https://url.to/image.ext"
+
+NAME=$1
+URL=$2
+
+# --- PATH RESOLUTION ---
+# Dynamically find exactly where this script lives
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Define our absolute repository roots based on the script's location
+CYTUBE_REPO="$SCRIPT_DIR/.."
+MAIN_REPO="$SCRIPT_DIR/../.."
+
+# --- FILE SETUP ---
+EXT="${URL##*.}"
+EXT=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
+
+if [[ ! "$EXT" =~ ^(png|gif|jpg|jpeg|webp|avif)$ ]]; then
+	echo "⚠️ Warning: Extension '$EXT' looks unusual. Ensure the URL ends with the file type."
+fi
+
+# Target files using the absolute paths
+FILE="$CYTUBE_REPO/emote/$NAME.$EXT"
+JSON_FILE="$CYTUBE_REPO/emotes.json"
+
+echo "Downloading $NAME..."
+curl -s -o "$FILE" "$URL"
+
+echo "Optimizing image..."
+if [ "$EXT" != "gif" ]; then
+	mogrify -resize "400x>" "$FILE"
+else
+	echo "↳ Skipping resize for GIF to preserve animation frames."
+fi
+
+if [ "$EXT" == "png" ]; then
+	optipng -o7 -strip all "$FILE"
+fi
+
+echo "Updating emotes.json..."
+jq --arg name ":$NAME:" --arg url "https://mlpcon.online/image/emote/$NAME.$EXT" \
+	'. += [{"name": $name, "image": $url}]' "$JSON_FILE" > "$CYTUBE_REPO/tmp.json" && mv "$CYTUBE_REPO/tmp.json" "$JSON_FILE"
+
+echo "Sorting emotes..."
+node "$CYTUBE_REPO/bin/sortemotes"
+
+# --- GIT OPERATIONS ---
+echo "Committing to cytube submodule..."
+# Use || exit so the script safely aborts if the cd fails
+cd "$CYTUBE_REPO" || exit
+git add "emote/$NAME.$EXT" emotes.json
+git commit -m "added emote :$NAME:"
+git push origin master
+
+echo "Committing pointer to main repo..."
+cd "$MAIN_REPO" || exit
+git add cytube
+git commit -m "chore: bump cytube submodule for :$NAME: emote"
+git push origin master
+
+echo "✅ Emote $NAME fully processed and pushed!"
