@@ -1,9 +1,5 @@
-**/mc/*
-/image/emote/cum.png
-/image/emote/horsepussy.jpg
-/image/emote/numgussy.png
+image/emote/cum.png
+image/emote/horsepussy.jpg
+image/emote/numgussy.png
 image/emote/iwtciz.png
-/2025
-/nginx/site-includes/mlpcon.online-proxy-redirects.conf
-node_modules/
 *:Zone.Identifier
